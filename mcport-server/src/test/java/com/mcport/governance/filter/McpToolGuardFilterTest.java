@@ -81,6 +81,24 @@ class McpToolGuardFilterTest {
     }
 
     @Test
+    void rejectsBatchRequests() throws Exception {
+        authenticate(List.of("READ"));
+        MockHttpServletResponse response = filter("[" + callBody("query_orders") + "]");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString(StandardCharsets.UTF_8)).contains("-32600");
+    }
+
+    @Test
+    void rejectsMalformedJson() throws Exception {
+        authenticate(List.of("READ"));
+        MockHttpServletResponse response = filter("{not json");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString(StandardCharsets.UTF_8)).contains("-32700");
+    }
+
+    @Test
     void letsProtocolMethodsThroughWithoutRateLimit() throws Exception {
         authenticate(List.of("READ"));
         MockHttpServletResponse response = filter("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}");

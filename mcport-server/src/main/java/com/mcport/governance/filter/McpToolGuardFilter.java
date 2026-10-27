@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -28,6 +29,9 @@ import java.util.Map;
  *
  * <p>工具方法内部抛出的异常会被 MCP SDK 包成 {@code isError:true} 的工具结果，
  * 拿不到 HTTP 状态码，因此权限与限流必须在 HTTP 层拦截。
+ *
+ * <p>所有无法识别的请求体一律拒绝而非放行：批量数组、非 JSON-RPC 对象、
+ * 未登记工具都在此拦住，避免「解析不出来就跳过治理」。
  */
 @Component
 @Order(Ordered.LOWEST_PRECEDENCE - 10)
@@ -58,7 +62,22 @@ public class McpToolGuardFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         byte[] body = request.getInputStream().readAllBytes();
-        String toolName = extractToolName(body);
+        JsonNode root;
+        try {
+            root = body.length == 0 ? null : objectMapper.readTree(body);
+        } catch (IOException e) {
+            writeJsonRpcError(response, HttpServletResponse.SC_BAD_REQUEST, -32700, "Parse error");
+            return;
+        }
+
+        if (root != null && root.isArray()) {
+            // SDK 按单条 JSON-RPC 处理，批量请求无法逐条治理，直接拒绝
+            writeJsonRpcError(response, HttpServletResponse.SC_BAD_REQUEST, -32600,
+                    "批量请求不受支持，请逐条发送");
+            return;
+        }
+
+        String toolName = extractToolName(root);
         if (toolName == null) {
             chain.doFilter(new CachedBodyRequest(request, body), response);
             return;
@@ -83,20 +102,12 @@ public class McpToolGuardFilter extends OncePerRequestFilter {
         chain.doFilter(new CachedBodyRequest(request, body), response);
     }
 
-    private String extractToolName(byte[] body) {
-        if (body == null || body.length == 0) {
+    private String extractToolName(JsonNode root) {
+        if (root == null || !root.isObject() || !"tools/call".equals(root.path("method").asText())) {
             return null;
         }
-        try {
-            JsonNode root = objectMapper.readTree(body);
-            if (root.isArray() || !"tools/call".equals(root.path("method").asText())) {
-                return null;
-            }
-            String name = root.path("params").path("name").asText(null);
-            return name == null || name.isBlank() ? null : name;
-        } catch (IOException e) {
-            return null;
-        }
+        String name = root.path("params").path("name").asText(null);
+        return name == null || name.isBlank() ? null : name;
     }
 
     private void writeError(HttpServletResponse response, RuntimeException e) throws IOException {
@@ -107,5 +118,17 @@ public class McpToolGuardFilter extends OncePerRequestFilter {
         objectMapper.writeValue(response.getWriter(), Map.of(
                 "error", rateLimited ? "Rate Limit Exceeded" : "Forbidden",
                 "message", e.getMessage()));
+    }
+
+    private void writeJsonRpcError(HttpServletResponse response, int status, int code, String message)
+            throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("jsonrpc", "2.0");
+        body.put("id", null);
+        body.put("error", Map.of("code", code, "message", message));
+        objectMapper.writeValue(response.getWriter(), body);
     }
 }
