@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mcport.governance.audit.AuditService;
 import com.mcport.governance.auth.ApiKeyContext;
 import com.mcport.governance.auth.ApiKeyPrincipal;
-import com.mcport.governance.auth.ToolPermission;
+import com.mcport.governance.auth.ToolPermissionRegistry;
 import com.mcport.governance.exception.ForbiddenException;
 import com.mcport.governance.exception.RateLimitException;
 import com.mcport.governance.metrics.GovernanceMetrics;
@@ -33,24 +33,25 @@ import java.util.Map;
 @Order(Ordered.LOWEST_PRECEDENCE - 10)
 public class McpToolGuardFilter extends OncePerRequestFilter {
 
-    private static final String MCP_PATH = "/mcp";
-
     private final RedisRateLimiter rateLimiter;
     private final AuditService auditService;
     private final GovernanceMetrics metrics;
+    private final ToolPermissionRegistry toolPermissions;
     private final ObjectMapper objectMapper;
 
     public McpToolGuardFilter(RedisRateLimiter rateLimiter, AuditService auditService,
-                              GovernanceMetrics metrics, ObjectMapper objectMapper) {
+                              GovernanceMetrics metrics, ToolPermissionRegistry toolPermissions,
+                              ObjectMapper objectMapper) {
         this.rateLimiter = rateLimiter;
         this.auditService = auditService;
         this.metrics = metrics;
+        this.toolPermissions = toolPermissions;
         this.objectMapper = objectMapper;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !MCP_PATH.equals(request.getRequestURI()) || !"POST".equalsIgnoreCase(request.getMethod());
+        return !McpPaths.isMcpEndpoint(request) || !"POST".equalsIgnoreCase(request.getMethod());
     }
 
     @Override
@@ -65,7 +66,8 @@ public class McpToolGuardFilter extends OncePerRequestFilter {
 
         ApiKeyPrincipal principal = ApiKeyContext.require();
         try {
-            String required = ToolPermission.of(toolName);
+            String required = toolPermissions.required(toolName).orElseThrow(() -> new ForbiddenException(
+                    "工具 " + toolName + " 未登记权限，拒绝调用"));
             if (!principal.hasPermission(required)) {
                 throw new ForbiddenException("工具 " + toolName + " 需要 " + required + " 权限");
             }

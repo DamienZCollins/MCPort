@@ -72,7 +72,8 @@ class OrderToolsTest {
 
     @Test
     void adminCanQueryOtherUserOrders() {
-        ApiKeyContext.set(new ApiKeyPrincipal("test-key-admin", "admin", List.of("READ", "WRITE"), 100));
+        ApiKeyContext.set(new ApiKeyPrincipal("test-key-admin", "admin",
+                List.of("READ", "WRITE", "ADMIN"), 100));
         when(orderService.queryByUser("user1", null, 5)).thenReturn(List.of());
 
         tools.queryOrders("user1", null, 5);

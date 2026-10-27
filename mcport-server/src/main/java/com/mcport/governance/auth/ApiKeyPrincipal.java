@@ -13,12 +13,14 @@ public record ApiKeyPrincipal(
 
     public static final String READ = "READ";
     public static final String WRITE = "WRITE";
+    /** 跨用户访问。身份来自 Key 的权限位，不再由 user_id 字符串推断。 */
+    public static final String ADMIN = "ADMIN";
 
     public boolean hasPermission(String permission) {
         return permissions != null && permissions.contains(permission);
     }
 
     public boolean isAdmin() {
-        return "admin".equals(userId);
+        return hasPermission(ADMIN);
     }
 }

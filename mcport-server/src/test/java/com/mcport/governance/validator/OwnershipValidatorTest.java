@@ -54,7 +54,8 @@ class OwnershipValidatorTest {
     }
 
     private ApiKeyPrincipal principal(String userId, boolean admin) {
-        return new ApiKeyPrincipal("k", userId, admin ? List.of("READ", "WRITE") : List.of("READ"), 60);
+        return new ApiKeyPrincipal("k", userId,
+                admin ? List.of("READ", "WRITE", "ADMIN") : List.of("READ"), 60);
     }
 
     private Order order(String userId) {

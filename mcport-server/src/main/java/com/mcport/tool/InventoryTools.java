@@ -3,6 +3,7 @@ package com.mcport.tool;
 import com.mcport.dto.InventoryInfo;
 import com.mcport.dto.LockResult;
 import com.mcport.governance.aspect.GovernedTool;
+import com.mcport.governance.auth.ApiKeyPrincipal;
 import com.mcport.governance.validator.OwnershipValidator;
 import com.mcport.service.InventoryService;
 import com.mcport.service.OrderService;
@@ -24,7 +25,7 @@ public class InventoryTools {
         this.ownershipValidator = ownershipValidator;
     }
 
-    @GovernedTool
+    @GovernedTool(permission = ApiKeyPrincipal.READ)
     @McpTool(name = "check_inventory", description = "查询 SKU 可用库存与预留库存",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false,
                     idempotentHint = true, openWorldHint = false))
@@ -42,7 +43,7 @@ public class InventoryTools {
         return info;
     }
 
-    @GovernedTool
+    @GovernedTool(permission = ApiKeyPrincipal.WRITE)
     @McpTool(name = "lock_inventory", description = "锁定库存并写入锁定流水（需要 WRITE 权限），同一订单重复锁定幂等",
             annotations = @McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false,
                     idempotentHint = true, openWorldHint = false))
