@@ -2,7 +2,7 @@
 
 生产级 MCP 工具服务 + 调度网关：用 Spring AI 实现 6 个真实业务的 MCP 工具，并以 AOP 切面统一提供鉴权、权限分级、限流、审计与越权防护。
 
-> 当前进度：阶段 0（仓库与本地环境）。尚无可运行服务，下一步为第 1 周的项目骨架与 MCP Server 集成验证。
+> 当前进度：阶段 0（仓库与本地环境）已完成。尚无可运行服务，下一步是阶段 1：项目骨架、建表与合成数据、MCP Server 集成验证。
 
 ## 核心能力（规划）
 
@@ -32,7 +32,7 @@
 
 ```text
 MCPort/
-├── mcport-server/          # 后端服务（第 1 周起）
+├── mcport-server/          # 后端服务（阶段 1 起）
 │   └── src/main/java/com/mcport/
 │       ├── api/            # MCP 端点与接入层
 │       ├── tool/           # 工具层（@McpTool）
@@ -41,7 +41,7 @@ MCPort/
 │       ├── mapper/         # MyBatis-Plus Mapper
 │       ├── entity/         # 数据库实体
 │       └── dto/            # 工具输入输出
-├── mcport-client-demo/     # 自研 Java Client（第 4 周）
+├── mcport-client-demo/     # 自研 Java Client（阶段 4）
 ├── docker/                 # 本地中间件：docker-compose.yml + 初始化脚本
 │   └── init/               # 01-schema.sql 建表、02-data.sql 合成数据
 ├── docs/                   # 方案、开发路径、编码约定
