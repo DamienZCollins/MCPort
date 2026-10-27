@@ -2,7 +2,7 @@
 
 生产级 MCP 工具服务 + 调度网关：用 Spring AI 实现 6 个真实业务的 MCP 工具，并以 AOP 切面统一提供鉴权、权限分级、限流、审计与越权防护。
 
-> 当前进度：阶段 0（仓库与本地环境）已完成。尚无可运行服务，下一步是阶段 1：项目骨架、建表与合成数据、MCP Server 集成验证。
+> 当前进度：阶段 1（项目骨架 + MCP Server 集成验证）已完成。可启动、可建表、`hello` 工具可被 MCP 客户端调用；业务工具在阶段 2 实现。
 
 ## 核心能力（规划）
 
@@ -20,8 +20,8 @@
 | 类别 | 选型 |
 |------|------|
 | 语言 | Java 21 |
-| 后端 | Spring Boot 3.5.1 + Spring AI 1.1.4（MCP Server WebMVC） |
-| 数据访问 | MyBatis-Plus 3.5.9 |
+| 后端 | Spring Boot 3.5.15 + Spring AI 1.1.8（MCP Server WebMVC） |
+| 数据访问 | MyBatis-Plus 3.5.12 |
 | 存储 | MySQL 8.0.40 + Redis 7.2 |
 | 指标 | Micrometer + Prometheus |
 | 本地环境 | Docker Compose |
@@ -32,7 +32,7 @@
 
 ```text
 MCPort/
-├── mcport-server/          # 后端服务（阶段 1 起）
+├── mcport-server/          # 后端服务：MCP Server + 治理层
 │   └── src/main/java/com/mcport/
 │       ├── api/            # MCP 端点与接入层
 │       ├── tool/           # 工具层（@McpTool）
@@ -41,10 +41,11 @@ MCPort/
 │       ├── mapper/         # MyBatis-Plus Mapper
 │       ├── entity/         # 数据库实体
 │       └── dto/            # 工具输入输出
+├── mcport-data-gen/        # 合成数据生成器，输出 docker/init/02-data.sql
 ├── mcport-client-demo/     # 自研 Java Client（阶段 4）
 ├── docker/                 # 本地中间件：docker-compose.yml + 初始化脚本
-│   └── init/               # 01-schema.sql 建表、02-data.sql 合成数据
-├── docs/                   # 方案、开发路径、编码约定
+│   └── init/               # 01-schema.sql 建表、02-data.sql 合成数据、03-api-keys.sql
+├── docs/                   # 方案、开发路径、编码约定、API 文档
 ├── .env.example            # 服务端环境变量模板
 └── README.md
 ```
@@ -91,6 +92,35 @@ cp .env.example .env
 
 ```bash
 set -a && source .env && set +a
+```
+
+### 3. 构建并启动服务
+
+```bash
+mvn -DskipTests package
+```
+
+```bash
+set -a && source .env && set +a && java -jar mcport-server/target/mcport-server.jar
+```
+
+- 健康检查：`http://localhost:8082/actuator/health`（端口由 `MCPORT_SERVER_PORT` 决定，本机 8080 被其他项目占用，模板默认改 8082）
+- Prometheus 指标：`http://localhost:8082/actuator/prometheus`
+- MCP 端点：`POST http://localhost:8082/mcp`，调用方式见 [docs/API.md](docs/API.md)
+
+### 4. 重建数据库与合成数据
+
+`docker/init/` 下的 SQL 只在数据卷首次初始化时执行。表结构或数据有改动时：
+
+```bash
+docker compose -f docker/docker-compose.yml --env-file docker/.env down -v
+docker compose -f docker/docker-compose.yml --env-file docker/.env up -d
+```
+
+合成数据规模：1000 个用户、1 万条订单、约 2 万条明细、500 个 SKU。重新生成：
+
+```bash
+mvn -pl mcport-data-gen exec:java
 ```
 
 ### 停止 / 清理
