@@ -49,15 +49,27 @@ public class OrderService {
         return new OrderDetail(OrderView.of(order), items);
     }
 
+    /**
+     * 按状态机流转订单状态；同状态视为幂等成功，不写库。
+     *
+     * @throws IllegalStateException 流转不合法，或读取后状态已被其他请求改动
+     */
     @Transactional
     public UpdateResult updateStatus(Order order, String newStatus, String remark) {
+        OrderStatus current = OrderStatus.parse(order.getStatus());
         OrderStatus target = OrderStatus.parse(newStatus);
-        String oldStatus = order.getStatus();
-        order.setStatus(target.name());
-        if (remark != null && !remark.isBlank()) {
-            order.setRemark(remark);
+        if (!current.canTransitionTo(target)) {
+            throw new IllegalStateException("非法状态流转：" + current + " → " + target
+                    + "，允许：" + current.allowedTargets());
         }
-        orderMapper.updateById(order);
-        return new UpdateResult(true, order.getOrderId(), oldStatus, target.name());
+        if (current == target) {
+            return new UpdateResult(true, order.getOrderId(), current.name(), target.name());
+        }
+        String effectiveRemark = remark == null || remark.isBlank() ? null : remark;
+        int updated = orderMapper.updateStatus(order.getOrderId(), current.name(), target.name(), effectiveRemark);
+        if (updated == 0) {
+            throw new IllegalStateException("订单状态已被其他请求修改，请重试：" + order.getOrderId());
+        }
+        return new UpdateResult(true, order.getOrderId(), current.name(), target.name());
     }
 }
