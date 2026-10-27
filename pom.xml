@@ -21,6 +21,7 @@
     <modules>
         <module>mcport-server</module>
         <module>mcport-data-gen</module>
+        <module>mcport-client-demo</module>
     </modules>
 
     <properties>
@@ -30,6 +31,8 @@
         <spring-ai.version>1.1.8</spring-ai.version>
         <mybatis-plus.version>3.5.12</mybatis-plus.version>
         <javafaker.version>1.0.2</javafaker.version>
+        <!-- 与 spring-ai-mcp 1.1.8 传递依赖保持一致 -->
+        <mcp-sdk.version>0.18.3</mcp-sdk.version>
     </properties>
 
     <dependencyManagement>
