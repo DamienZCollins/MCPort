@@ -27,14 +27,10 @@ public class OrderService {
     }
 
     public List<OrderView> queryByUser(String userId, String status, int limit) {
-        LambdaQueryWrapper<Order> query = new LambdaQueryWrapper<Order>()
-                .eq(Order::getUserId, userId)
-                .orderByDesc(Order::getCreatedAt)
-                .last("LIMIT " + limit);
-        if (status != null && !status.isBlank()) {
-            query.eq(Order::getStatus, OrderStatus.parse(status).name());
-        }
-        return orderMapper.selectList(query).stream().map(OrderView::of).toList();
+        String normalizedStatus = status == null || status.isBlank()
+                ? null : OrderStatus.parse(status).name();
+        return orderMapper.selectByUser(userId, normalizedStatus, limit).stream()
+                .map(OrderView::of).toList();
     }
 
     public Order findByOrderId(String orderId) {

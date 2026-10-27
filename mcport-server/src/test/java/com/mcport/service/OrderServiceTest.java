@@ -1,10 +1,13 @@
 package com.mcport.service;
 
+import com.mcport.dto.OrderView;
 import com.mcport.dto.UpdateResult;
 import com.mcport.entity.Order;
 import com.mcport.mapper.OrderItemMapper;
 import com.mcport.mapper.OrderMapper;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -21,6 +24,25 @@ class OrderServiceTest {
     private final OrderMapper orderMapper = mock(OrderMapper.class);
     private final OrderItemMapper orderItemMapper = mock(OrderItemMapper.class);
     private final OrderService service = new OrderService(orderMapper, orderItemMapper);
+
+    @Test
+    void queryByUserNormalizesStatusAndPassesLimit() {
+        when(orderMapper.selectByUser("user0", "PAID", 5)).thenReturn(List.of(order("ORD_1", "PAID")));
+
+        List<OrderView> views = service.queryByUser("user0", "paid", 5);
+
+        assertThat(views).extracting(OrderView::orderId).containsExactly("ORD_1");
+        verify(orderMapper).selectByUser("user0", "PAID", 5);
+    }
+
+    @Test
+    void blankStatusIsPassedAsNull() {
+        when(orderMapper.selectByUser("user0", null, 10)).thenReturn(List.of());
+
+        service.queryByUser("user0", "  ", 10);
+
+        verify(orderMapper).selectByUser("user0", null, 10);
+    }
 
     @Test
     void updatesStatusWithExpectedStatusGuard() {
