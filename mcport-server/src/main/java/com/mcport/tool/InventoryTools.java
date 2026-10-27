@@ -3,7 +3,9 @@ package com.mcport.tool;
 import com.mcport.dto.InventoryInfo;
 import com.mcport.dto.LockResult;
 import com.mcport.governance.aspect.GovernedTool;
+import com.mcport.governance.validator.OwnershipValidator;
 import com.mcport.service.InventoryService;
+import com.mcport.service.OrderService;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
@@ -12,9 +14,14 @@ import org.springframework.stereotype.Component;
 public class InventoryTools {
 
     private final InventoryService inventoryService;
+    private final OrderService orderService;
+    private final OwnershipValidator ownershipValidator;
 
-    public InventoryTools(InventoryService inventoryService) {
+    public InventoryTools(InventoryService inventoryService, OrderService orderService,
+                          OwnershipValidator ownershipValidator) {
         this.inventoryService = inventoryService;
+        this.orderService = orderService;
+        this.ownershipValidator = ownershipValidator;
     }
 
     @GovernedTool
@@ -52,6 +59,8 @@ public class InventoryTools {
         if (quantity == null || quantity <= 0) {
             throw new IllegalArgumentException("quantity 必须大于 0");
         }
+        // orderId 决定幂等键，必须先确认订单存在且属于调用方，否则可借他人订单号占位
+        ownershipValidator.checkOrderOwnership(orderService.findByOrderId(orderId));
         return inventoryService.lock(skuId, quantity, orderId);
     }
 }
