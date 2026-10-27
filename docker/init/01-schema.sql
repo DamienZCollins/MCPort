@@ -44,6 +44,17 @@ CREATE TABLE IF NOT EXISTS `t_inventory` (
     KEY `idx_t_inventory_warehouse_id` (`warehouse_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '库存表';
 
+-- 库存锁定流水：以 (order_id, sku_id) 唯一约束保证 lock_inventory 幂等
+CREATE TABLE IF NOT EXISTS `t_inventory_lock` (
+    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+    `order_id` VARCHAR(64) NOT NULL COMMENT '订单号',
+    `sku_id` VARCHAR(64) NOT NULL COMMENT 'SKU',
+    `quantity` INT NOT NULL COMMENT '锁定数量',
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_t_inventory_lock_order_sku` (`order_id`, `sku_id`),
+    KEY `idx_t_inventory_lock_sku_id` (`sku_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '库存锁定流水';
+
 -- API Key 管理表
 CREATE TABLE IF NOT EXISTS `t_api_key` (
     `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
