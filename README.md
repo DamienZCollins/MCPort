@@ -2,13 +2,13 @@
 
 生产级 MCP 工具服务 + 调度网关：用 Spring AI 实现 6 个真实业务的 MCP 工具，并以 AOP 切面统一提供鉴权、权限分级、限流、审计与越权防护。
 
-> 当前进度：阶段 1（项目骨架 + MCP Server 集成验证）已完成。可启动、可建表、`hello` 工具可被 MCP 客户端调用；业务工具在阶段 2 实现。
+> 当前进度：阶段 2（工具层）已完成。6 个 MCP 工具真实读写 MySQL，锁定库存幂等；鉴权 / 限流 / 审计在阶段 3 接入。
 
 ## 核心能力（规划）
 
 1. **工具层**：6 个 MCP 工具，READ / WRITE 权限分离，真实读写 MySQL
    - 只读：`query_orders`、`check_inventory`、`get_order_detail`、`search_knowledge`
-   - 写入：`update_order_status`、`lock_inventory`
+   - 写入：`update_order_status`、`lock_inventory`（按订单 + SKU 幂等）
 2. **治理层**：API Key 鉴权（Redis 缓存 + MySQL 兜底）、权限校验、Redis 限流、异步审计、越权防护
 3. **可观测性**：Micrometer 指标（调用量 / 延迟 / 拦截），Prometheus 端点暴露
 4. **客户端兼容**：自研 Java Client + MCP Inspector 验证 Streamable HTTP 协议
@@ -34,10 +34,10 @@
 MCPort/
 ├── mcport-server/          # 后端服务：MCP Server + 治理层
 │   └── src/main/java/com/mcport/
-│       ├── api/            # MCP 端点与接入层
-│       ├── tool/           # 工具层（@McpTool）
-│       ├── governance/     # 治理层：aspect / auth / ratelimit / audit / validator
-│       ├── service/        # 业务逻辑
+│       ├── api/            # MCP 端点与接入层（阶段 3）
+│       ├── tool/           # 工具层：OrderTools / InventoryTools / KnowledgeTools
+│       ├── governance/     # 治理层：aspect / auth / ratelimit / audit / validator（阶段 3）
+│       ├── service/        # 业务逻辑：OrderService / InventoryService / KnowledgeService
 │       ├── mapper/         # MyBatis-Plus Mapper
 │       ├── entity/         # 数据库实体
 │       └── dto/            # 工具输入输出
@@ -106,7 +106,7 @@ set -a && source .env && set +a && java -jar mcport-server/target/mcport-server.
 
 - 健康检查：`http://localhost:8082/actuator/health`（端口由 `MCPORT_SERVER_PORT` 决定，本机 8080 被其他项目占用，模板默认改 8082）
 - Prometheus 指标：`http://localhost:8082/actuator/prometheus`
-- MCP 端点：`POST http://localhost:8082/mcp`，调用方式见 [docs/API.md](docs/API.md)
+- MCP 端点：`POST http://localhost:8082/mcp`，6 个工具的输入输出与错误说明见 [docs/API.md](docs/API.md)
 
 ### 4. 重建数据库与合成数据
 

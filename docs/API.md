@@ -1,6 +1,6 @@
 # API 文档
 
-> 阶段 1 快照：仅含 MCP Server 集成验证工具 `hello`，业务工具在阶段 2 补齐。
+> 阶段 2 快照：6 个业务工具已可用，鉴权 / 限流 / 审计在阶段 3 接入。
 
 ## MCP Server 端点
 
@@ -72,12 +72,8 @@ curl -X POST http://localhost:8082/mcp \
 ### tools/call
 
 ```bash
-curl -X POST http://localhost:8082/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -H "Mcp-Session-Id: <session>" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{
-        "name":"hello","arguments":{"name":"World"}}}'
+curl -X POST http://localhost:8082/mcp   -H 'Content-Type: application/json'   -H 'Accept: application/json, text/event-stream'   -H "Mcp-Session-Id: <session>"   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{
+        "name":"check_inventory","arguments":{"skuId":"SKU00001"}}}'
 ```
 
 ```json
@@ -85,19 +81,41 @@ curl -X POST http://localhost:8082/mcp \
   "jsonrpc": "2.0",
   "id": 3,
   "result": {
-    "content": [{"type": "text", "text": "Hello, World"}],
+    "content": [{"type": "text", "text": "{\"skuId\":\"SKU00001\",\"warehouseId\":\"WH-BJ\",\"availableQty\":662,\"reservedQty\":4}"}],
     "isError": false
   }
 }
 ```
 
+工具返回值统一序列化为 JSON 文本放入 `content[0].text`；业务校验失败时 `isError` 为 `true`，`text` 为中文错误说明。
+
 ## 工具清单
 
-| 工具 | 权限 | 状态 |
-|------|------|------|
-| `hello` | — | 阶段 1 集成验证用，阶段 2 移除 |
-| `query_orders` / `check_inventory` / `get_order_detail` / `search_knowledge` | READ | 阶段 2 |
-| `update_order_status` / `lock_inventory` | WRITE | 阶段 2 |
+| 工具 | 权限 | 输入 | 输出 |
+|------|------|------|------|
+| `query_orders` | READ | `userId` / `status?` / `limit?` | `OrderView[]` |
+| `get_order_detail` | READ | `orderId` | `{order, items}` |
+| `check_inventory` | READ | `skuId` / `warehouseId?` | `InventoryInfo` |
+| `search_knowledge` | READ | `query` / `category?` | `KnowledgeDocument[]` |
+| `update_order_status` | WRITE | `orderId` / `newStatus` / `remark?` | `UpdateResult` |
+| `lock_inventory` | WRITE | `skuId` / `quantity` / `orderId` | `LockResult` |
+
+参数名由 MCP 注解扫描器从**方法形参名**生成（camelCase），调用时按 schema 里的名字传参；`required = false` 的参数可省略。
+
+### 参数校验与错误
+
+| 场景 | 返回 |
+|------|------|
+| 缺失必填参数 / 空字符串 | `isError: true`，如 `userId 不能为空` |
+| `limit` 超出 1-100 | `limit 取值范围 1-100` |
+| 非法订单状态 | `非法订单状态：X，可选值：PENDING/PAID/SHIPPED/COMPLETED` |
+| 订单 / 库存不存在 | `订单不存在：X` / `库存记录不存在：sku=X` |
+| 库存不足 | `库存不足：sku=X 可用 N，请求 M` |
+| 重复锁定同一订单 + SKU | 幂等成功，返回 `idempotent: true` 且不重复扣减 |
+
+### 订单状态
+
+`PENDING` → `PAID` → `SHIPPED` → `COMPLETED`。阶段 2 不限制流转方向（阶段 3 起由治理层补齐业务规则），非法状态名直接拒绝。
 
 ## HTTP 错误码（阶段 3 起生效）
 
