@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mcport.governance.audit.AuditService;
 import com.mcport.governance.exception.ForbiddenException;
 import com.mcport.governance.exception.UnauthorizedException;
+import com.mcport.governance.filter.McpPaths;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,7 +25,6 @@ import java.util.Map;
 @Order(Ordered.LOWEST_PRECEDENCE - 20)
 public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
-    private static final String MCP_PATH = "/mcp";
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final ApiKeyService apiKeyService;
@@ -39,7 +39,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !MCP_PATH.equals(request.getRequestURI());
+        return !McpPaths.isMcpEndpoint(request);
     }
 
     @Override

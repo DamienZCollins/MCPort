@@ -16,14 +16,17 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * API Key 鉴权：先查 Redis 缓存，未命中再查 MySQL 并回填（TTL 1 小时）。
+ * API Key 鉴权：先查 Redis 缓存，未命中再查 MySQL 并回填。
+ *
+ * <p>缓存里包含 {@code enabled} 与权限，因此 TTL 就是「禁用 / 改权限」生效的最大延迟，
+ * 取 60 秒而不是小时级：既保留分钟内的复用，也把撤销窗口收敛到可接受范围。
  */
 @Service
 public class ApiKeyService {
 
     private static final Logger log = LoggerFactory.getLogger(ApiKeyService.class);
     private static final String CACHE_PREFIX = "api_key:";
-    private static final Duration CACHE_TTL = Duration.ofHours(1);
+    private static final Duration CACHE_TTL = Duration.ofSeconds(60);
     private static final TypeReference<List<String>> PERMISSIONS_TYPE = new TypeReference<>() {
     };
 
@@ -52,6 +55,9 @@ public class ApiKeyService {
         return new ApiKeyPrincipal(rawApiKey, cached.userId(), cached.permissions(), cached.rateLimit());
     }
 
+    /**
+     * 立即失效某个 Key 的缓存。目前没有管理接口调用它，保留作为运维 / 后续管理端点的撤销通道。
+     */
     public void evict(String rawApiKey) {
         try {
             redisTemplate.delete(CACHE_PREFIX + rawApiKey);
