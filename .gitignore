@@ -1,0 +1,40 @@
+# ---- 构建产物 ----
+target/
+build/
+dist/
+out/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# ---- 依赖 ----
+node_modules/
+.pnpm-store/
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# ---- 日志与临时文件 ----
+logs/
+*.log
+*.tmp
+*.pid
+
+# ---- 本地环境（敏感信息不进入 Git）----
+.env
+.env.local
+docker/.env
+application-local.yml
+application-secret.yml
+
+# ---- 系统文件 ----
+.DS_Store
+Thumbs.db
