@@ -2,9 +2,9 @@
 
 生产级 MCP 工具服务 + 调度网关：用 Spring AI 实现 6 个真实业务的 MCP 工具，并以 AOP 切面统一提供鉴权、权限分级、限流、审计与越权防护。
 
-> 当前进度：阶段 3（治理层）已完成。6 个 MCP 工具真实读写 MySQL；API Key 鉴权、权限分级、Redis 限流、异步审计、越权检查与 Prometheus 指标全部生效。
+> 当前进度：阶段 4 接近完成。服务端 4 个阶段的能力全部落地，自研 Java Client 16 项检查全通过；MCP Inspector 的浏览器手工验证尚未执行（步骤见 [客户端接入指南](docs/CLIENT_INTEGRATION.md)）。
 
-## 核心能力（规划）
+## 核心能力
 
 1. **工具层**：6 个 MCP 工具，READ / WRITE 权限分离，真实读写 MySQL
    - 只读：`query_orders`、`check_inventory`、`get_order_detail`、`search_knowledge`
@@ -42,7 +42,7 @@ MCPort/
 │       ├── entity/         # 数据库实体
 │       └── dto/            # 工具输入输出
 ├── mcport-data-gen/        # 合成数据生成器，输出 docker/init/02-data.sql
-├── mcport-client-demo/     # 自研 Java Client（阶段 4）
+├── mcport-client-demo/     # 自研 Java Client：握手、6 个工具、治理拦截验证
 ├── docker/                 # 本地中间件：docker-compose.yml + 初始化脚本
 │   └── init/               # 01-schema.sql 建表、02-data.sql 合成数据、03-api-keys.sql
 ├── docs/                   # 方案、开发路径、编码约定、API 文档
@@ -107,6 +107,7 @@ set -a && source .env && set +a && java -jar mcport-server/target/mcport-server.
 - 健康检查：`http://localhost:8082/actuator/health`（端口由 `MCPORT_SERVER_PORT` 决定，本机 8080 被其他项目占用，模板默认改 8082）
 - Prometheus 指标：`http://localhost:8082/actuator/prometheus`
 - MCP 端点：`POST http://localhost:8082/mcp`，6 个工具的输入输出与错误说明见 [docs/API.md](docs/API.md)
+- 客户端接入（Java Client / MCP Inspector / curl）与实测数据见 [docs/CLIENT_INTEGRATION.md](docs/CLIENT_INTEGRATION.md)
 
 调用需带 `Authorization: Bearer <api_key>`，本地种子 Key：
 
@@ -115,6 +116,7 @@ set -a && source .env && set +a && java -jar mcport-server/target/mcport-server.
 | `test-key-read-only` | `user0` | READ | 60/min |
 | `test-key-admin` | `admin` | READ + WRITE | 100/min |
 | `test-key-disabled` | `user1` | READ（已禁用，403） | 60/min |
+| `test-key-tight` | `user0` | READ | 3/min（用于验证 429） |
 
 ```bash
 curl -s -X POST http://localhost:8082/mcp \
@@ -126,7 +128,17 @@ curl -s -X POST http://localhost:8082/mcp \
         "clientInfo":{"name":"curl","version":"1.0"}}}'
 ```
 
-### 4. 重建数据库与合成数据
+### 4. 运行自研 Java Client
+
+服务端启动后：
+
+```bash
+mvn -pl mcport-client-demo exec:java
+```
+
+会依次验证握手、`tools/list`、6 个工具调用以及 401 / 403 / 越权 / 429 拦截，最后打印 `Summary: 16 passed, 0 failed`。有失败项时以退出码 1 结束。
+
+### 5. 重建数据库与合成数据
 
 `docker/init/` 下的 SQL 只在数据卷首次初始化时执行。表结构或数据有改动时：
 
