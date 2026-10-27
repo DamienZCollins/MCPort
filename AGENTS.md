@@ -10,7 +10,7 @@ MCP 工具服务 + 调度网关。技术栈：Java 21 / Spring Boot 3.5 / Spring
 mcport-server/src/main/java/com/mcport
 ├── api/           # MCP 端点与接入层
 ├── tool/          # 工具层（@McpTool）
-├── governance/    # 治理层（aspect / auth / ratelimit / audit / validator）
+├── governance/    # 治理层（filter / aspect / auth / ratelimit / audit / metrics / validator）
 ├── service/       # 业务逻辑
 ├── mapper/        # MyBatis-Plus Mapper
 ├── entity/        # 数据库实体

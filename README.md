@@ -2,7 +2,7 @@
 
 生产级 MCP 工具服务 + 调度网关：用 Spring AI 实现 6 个真实业务的 MCP 工具，并以 AOP 切面统一提供鉴权、权限分级、限流、审计与越权防护。
 
-> 当前进度：阶段 2（工具层）已完成。6 个 MCP 工具真实读写 MySQL，锁定库存幂等；鉴权 / 限流 / 审计在阶段 3 接入。
+> 当前进度：阶段 3（治理层）已完成。6 个 MCP 工具真实读写 MySQL；API Key 鉴权、权限分级、Redis 限流、异步审计、越权检查与 Prometheus 指标全部生效。
 
 ## 核心能力（规划）
 
@@ -34,9 +34,9 @@
 MCPort/
 ├── mcport-server/          # 后端服务：MCP Server + 治理层
 │   └── src/main/java/com/mcport/
-│       ├── api/            # MCP 端点与接入层（阶段 3）
+│       ├── api/            # MCP 端点与接入层
 │       ├── tool/           # 工具层：OrderTools / InventoryTools / KnowledgeTools
-│       ├── governance/     # 治理层：aspect / auth / ratelimit / audit / validator（阶段 3）
+│       ├── governance/     # 治理层：aspect / auth / ratelimit / audit / validator / metrics / filter
 │       ├── service/        # 业务逻辑：OrderService / InventoryService / KnowledgeService
 │       ├── mapper/         # MyBatis-Plus Mapper
 │       ├── entity/         # 数据库实体
@@ -107,6 +107,18 @@ set -a && source .env && set +a && java -jar mcport-server/target/mcport-server.
 - 健康检查：`http://localhost:8082/actuator/health`（端口由 `MCPORT_SERVER_PORT` 决定，本机 8080 被其他项目占用，模板默认改 8082）
 - Prometheus 指标：`http://localhost:8082/actuator/prometheus`
 - MCP 端点：`POST http://localhost:8082/mcp`，6 个工具的输入输出与错误说明见 [docs/API.md](docs/API.md)
+
+调用需带 `Authorization: Bearer <api_key>`，本地种子 Key：
+
+| Key | 用户 | 权限 | 限流 |
+|-----|------|------|------|
+| `test-key-read-only` | `user0` | READ | 60/min |
+| `test-key-admin` | `admin` | READ + WRITE | 100/min |
+| `test-key-disabled` | `user1` | READ（已禁用，403） | 60/min |
+
+```bash
+curl -s -X POST http://localhost:8082/mcp   -H 'Content-Type: application/json'   -H 'Accept: application/json, text/event-stream'   -H 'Authorization: Bearer test-key-read-only'   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
+```
 
 ### 4. 重建数据库与合成数据
 
