@@ -1,0 +1,8 @@
+# 本地开发覆盖项；连接信息仍由环境变量提供（见 .env.example）
+logging:
+  level:
+    com.mcport: debug
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
