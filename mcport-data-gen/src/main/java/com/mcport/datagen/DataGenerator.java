@@ -36,11 +36,15 @@ public final class DataGenerator {
     }
 
     public static void main(String[] args) throws IOException {
-        Path output = Path.of(args.length > 0 ? args[0] : "docker/init/02-data.sql");
-        Faker faker = new Faker(Locale.CHINA);
+        Path output = resolveOutput(args);
         Random random = new Random(20251027L);
+        // Faker 自带随机源默认取系统熵，必须注入同一个种子，否则备注文本每次生成都不同
+        Faker faker = new Faker(Locale.CHINA, random);
         LocalDateTime now = LocalDateTime.of(2026, 10, 27, 0, 0);
 
+        if (output.getParent() != null) {
+            Files.createDirectories(output.getParent());
+        }
         try (BufferedWriter writer = Files.newBufferedWriter(output, StandardCharsets.UTF_8)) {
             writer.write("-- 合成数据：由 mcport-data-gen 生成，请勿手工编辑\n");
             writer.write("-- 重新生成：mvn -pl mcport-data-gen exec:java\n\n");
@@ -95,6 +99,28 @@ public final class DataGenerator {
         }
 
         System.out.println("已生成 " + output.toAbsolutePath());
+    }
+
+    /**
+     * 未指定输出路径时写到仓库根的 {@code docker/init/02-data.sql}。
+     *
+     * <p>{@code mvn -pl mcport-data-gen exec:java} 的工作目录是模块目录，直接写相对路径会落到
+     * {@code mcport-data-gen/docker/init/}；这里从当前目录向上找含 {@code docker/init/01-schema.sql}
+     * 的祖先目录，使命令在模块目录或仓库根执行都写到同一处。
+     */
+    private static Path resolveOutput(String[] args) {
+        if (args.length > 0) {
+            return Path.of(args[0]);
+        }
+        String relative = "docker/init/02-data.sql";
+        Path dir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        while (dir != null) {
+            if (Files.exists(dir.resolve("docker/init/01-schema.sql"))) {
+                return dir.resolve(relative);
+            }
+            dir = dir.getParent();
+        }
+        return Path.of(relative);
     }
 
     private static void writeInserts(BufferedWriter writer, String table, String columns, List<String> rows)
