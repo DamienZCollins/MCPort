@@ -2,7 +2,7 @@
 
 生产级 MCP 工具服务 + 调度网关：用 Spring AI 实现 6 个真实业务的 MCP 工具，并以 AOP 切面统一提供鉴权、权限分级、限流、审计与越权防护。
 
-> 当前进度：阶段 4 接近完成。服务端 4 个阶段的能力全部落地，自研 Java Client 16 项检查全通过；MCP Inspector 的浏览器手工验证尚未执行（步骤见 [客户端接入指南](docs/CLIENT_INTEGRATION.md)）。
+> 当前进度：阶段 4 已完成。6 个 MCP 工具、治理层与可观测性全部落地，自研 Java Client 16 项检查全通过（MCP Inspector 未纳入本次验证）。
 
 ## 核心能力
 
@@ -11,7 +11,7 @@
    - 写入：`update_order_status`、`lock_inventory`（按订单 + SKU 幂等）
 2. **治理层**：API Key 鉴权（Redis 缓存 + MySQL 兜底）、权限校验、Redis 限流、异步审计、越权防护
 3. **可观测性**：Micrometer 指标（调用量 / 延迟 / 拦截），Prometheus 端点暴露
-4. **客户端兼容**：自研 Java Client + MCP Inspector 验证 Streamable HTTP 协议
+4. **客户端兼容**：自研 Java Client + curl 验证 Streamable HTTP 协议
 
 详见 [总体方案](docs/总体方案.md) 与 [开发路径](docs/开发路径.md)。
 
@@ -107,7 +107,7 @@ set -a && source .env && set +a && java -jar mcport-server/target/mcport-server.
 - 健康检查：`http://localhost:8082/actuator/health`（端口由 `MCPORT_SERVER_PORT` 决定，本机 8080 被其他项目占用，模板默认改 8082）
 - Prometheus 指标：`http://localhost:8082/actuator/prometheus`
 - MCP 端点：`POST http://localhost:8082/mcp`，6 个工具的输入输出与错误说明见 [docs/API.md](docs/API.md)
-- 客户端接入（Java Client / MCP Inspector / curl）与实测数据见 [docs/CLIENT_INTEGRATION.md](docs/CLIENT_INTEGRATION.md)
+- 客户端接入（Java Client / curl）与实测数据见 [docs/CLIENT_INTEGRATION.md](docs/CLIENT_INTEGRATION.md)
 
 调用需带 `Authorization: Bearer <api_key>`，本地种子 Key：
 

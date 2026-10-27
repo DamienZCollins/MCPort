@@ -105,9 +105,11 @@ Summary: 16 passed, 0 failed
 
 延迟为本机 Docker + 单实例服务端的一次调用耗时（含 SDK 序列化），不代表吞吐能力。
 
-## MCP Inspector
+## MCP Inspector（可选，阶段 4 未执行）
 
 MCP Inspector 是官方 Web 调试工具，可直接观察请求/响应 JSON。
+
+> 本阶段已明确跳过浏览器手工验证，配置步骤保留备查；协议正确性由 Java Client 与 curl 覆盖。
 
 ```bash
 npx @modelcontextprotocol/inspector
