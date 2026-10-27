@@ -34,13 +34,13 @@
 MCPort/
 ├── mcport-server/          # 后端服务：MCP Server + 治理层
 │   └── src/main/java/com/mcport/
-│       ├── api/            # MCP 端点与接入层
 │       ├── tool/           # 工具层：OrderTools / InventoryTools / KnowledgeTools
 │       ├── governance/     # 治理层：aspect / auth / ratelimit / audit / validator / metrics / filter
 │       ├── service/        # 业务逻辑：OrderService / InventoryService / KnowledgeService
 │       ├── mapper/         # MyBatis-Plus Mapper
 │       ├── entity/         # 数据库实体
 │       └── dto/            # 工具输入输出
+│   # MCP 端点 /mcp 由 Spring AI Starter 自动注册，没有自研接入层代码
 ├── mcport-data-gen/        # 合成数据生成器，输出 docker/init/02-data.sql
 ├── mcport-client-demo/     # 自研 Java Client：握手、6 个工具、治理拦截验证
 ├── docker/                 # 本地中间件：docker-compose.yml + 初始化脚本
@@ -97,7 +97,7 @@ set -a && source .env && set +a
 ### 3. 构建并启动服务
 
 ```bash
-mvn -DskipTests package
+./mvnw -DskipTests package
 ```
 
 ```bash
@@ -133,7 +133,7 @@ curl -s -X POST http://localhost:8082/mcp \
 服务端启动后：
 
 ```bash
-mvn -pl mcport-client-demo exec:java
+./mvnw -pl mcport-client-demo exec:java
 ```
 
 会依次验证握手、`tools/list`、6 个工具调用以及 401 / 403 / 越权 / 429 拦截，最后打印 `Summary: 16 passed, 0 failed`。有失败项时以退出码 1 结束。
@@ -150,7 +150,7 @@ docker compose -f docker/docker-compose.yml --env-file docker/.env up -d
 合成数据规模：1000 个用户、1 万条订单、约 2 万条明细、500 个 SKU。重新生成：
 
 ```bash
-mvn -pl mcport-data-gen exec:java
+./mvnw -pl mcport-data-gen exec:java
 ```
 
 ### 停止 / 清理

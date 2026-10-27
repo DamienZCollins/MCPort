@@ -8,7 +8,6 @@ MCP 工具服务 + 调度网关。技术栈：Java 21 / Spring Boot 3.5 / Spring
 
 ```text
 mcport-server/src/main/java/com/mcport
-├── api/           # MCP 端点与接入层
 ├── tool/          # 工具层（@McpTool）
 ├── governance/    # 治理层（filter / aspect / auth / ratelimit / audit / metrics / validator）
 ├── service/       # 业务逻辑
@@ -17,7 +16,7 @@ mcport-server/src/main/java/com/mcport
 └── dto/           # 工具输入输出
 ```
 
-依赖方向单向：`api / tool → governance → service → mapper`，反方向依赖不允许。细节见 [docs/编码约定.md](docs/编码约定.md)。
+依赖方向单向：`tool → governance → service → mapper`，反方向依赖不允许。MCP 端点 `/mcp` 由 Spring AI Starter 自动注册，接入层的鉴权与限流在 `governance/filter`。细节见 [docs/编码约定.md](docs/编码约定.md)。
 
 ## git 相关
 
@@ -64,7 +63,7 @@ fix/xxx           # 修复分支
 
 ### 提交前检查
 
-- 构建与测试通过（阶段 1 起为 `mvn test`）
+- 构建与测试通过（阶段 1 起为 `./mvnw test`）
 - 未提交密钥：`.env`、`docker/.env`、`application-local.yml`
 
 ## 文档与配置

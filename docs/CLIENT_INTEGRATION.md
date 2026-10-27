@@ -30,13 +30,13 @@ mcport-client-demo/src/main/java/com/mcport/client/
 运行：
 
 ```bash
-mvn -pl mcport-client-demo exec:java
+./mvnw -pl mcport-client-demo exec:java
 ```
 
 缺省连 `http://localhost:8082/mcp`，也可传参：
 
 ```bash
-mvn -pl mcport-client-demo exec:java -Dexec.args="http://localhost:8082/mcp"
+./mvnw -pl mcport-client-demo exec:java -Dexec.args="http://localhost:8082/mcp"
 ```
 
 ### 关键实现点
@@ -242,7 +242,7 @@ mcp_tool_latency_seconds_max{tool="lock_inventory"} 0.006
 ### 复现方式
 
 ```bash
-mvn -pl mcport-client-demo exec:java
+./mvnw -pl mcport-client-demo exec:java
 curl -s http://localhost:8082/actuator/prometheus | grep mcp_
 docker exec -e MYSQL_PWD=$MYSQL_ROOT_PASSWORD mcport-mysql mysql -uroot -e \
   "SELECT status, block_reason, COUNT(*) FROM mcport_db.t_audit_log GROUP BY 1,2"
