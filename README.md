@@ -117,7 +117,13 @@ set -a && source .env && set +a && java -jar mcport-server/target/mcport-server.
 | `test-key-disabled` | `user1` | READ（已禁用，403） | 60/min |
 
 ```bash
-curl -s -X POST http://localhost:8082/mcp   -H 'Content-Type: application/json'   -H 'Accept: application/json, text/event-stream'   -H 'Authorization: Bearer test-key-read-only'   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
+curl -s -X POST http://localhost:8082/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'Authorization: Bearer test-key-read-only' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+        "protocolVersion":"2025-03-26","capabilities":{},
+        "clientInfo":{"name":"curl","version":"1.0"}}}'
 ```
 
 ### 4. 重建数据库与合成数据
