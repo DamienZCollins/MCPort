@@ -82,7 +82,7 @@ public final class McpGatewayClient {
                     lock == null ? "首次锁定失败" : brief(lock));
 
             ToolCall update = session.call("update_order_status",
-                    Map.of("orderId", "ORD_user0_002", "newStatus", "PAID", "remark", "客户端联调"));
+                    Map.of("orderId", "ORD_user0_002", "newStatus", "COMPLETED", "remark", "客户端联调"));
             report.check("update_order_status 成功",
                     !update.isError() && update.text().contains("\"success\":true"), brief(update));
         } catch (RuntimeException e) {
