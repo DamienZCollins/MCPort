@@ -1,6 +1,7 @@
 package com.mcport.tool;
 
 import com.mcport.dto.KnowledgeDocument;
+import com.mcport.governance.aspect.GovernedTool;
 import com.mcport.service.KnowledgeService;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
@@ -17,6 +18,7 @@ public class KnowledgeTools {
         this.knowledgeService = knowledgeService;
     }
 
+    @GovernedTool
     @McpTool(name = "search_knowledge", description = "检索业务知识库（订单、库存、售后规则）",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false,
                     idempotentHint = true, openWorldHint = false))

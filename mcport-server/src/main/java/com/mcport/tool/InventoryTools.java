@@ -2,6 +2,7 @@ package com.mcport.tool;
 
 import com.mcport.dto.InventoryInfo;
 import com.mcport.dto.LockResult;
+import com.mcport.governance.aspect.GovernedTool;
 import com.mcport.service.InventoryService;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
@@ -16,6 +17,7 @@ public class InventoryTools {
         this.inventoryService = inventoryService;
     }
 
+    @GovernedTool
     @McpTool(name = "check_inventory", description = "查询 SKU 可用库存与预留库存",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false,
                     idempotentHint = true, openWorldHint = false))
@@ -33,6 +35,7 @@ public class InventoryTools {
         return info;
     }
 
+    @GovernedTool
     @McpTool(name = "lock_inventory", description = "锁定库存并写入锁定流水（需要 WRITE 权限），同一订单重复锁定幂等",
             annotations = @McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false,
                     idempotentHint = true, openWorldHint = false))
