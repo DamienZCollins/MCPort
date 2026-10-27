@@ -24,10 +24,12 @@ Mcp-Session-Id: <initialize 返回的会话 ID>   # initialize 之后的所有�
 | Key | 用户 | 权限 | 限流 | 说明 |
 |-----|------|------|------|------|
 | `test-key-read-only` | `user0` | READ | 60/min | 只读，只能查询 `user0` 自己的订单 |
-| `test-key-admin` | `admin` | READ + WRITE | 100/min | 可调用写入工具，可访问任意用户数据 |
+| `test-key-admin` | `admin` | READ + WRITE + ADMIN | 100/min | 可调用写入工具，可访问任意用户数据 |
 | `test-key-disabled` | `user1` | READ | 60/min | `enabled = 0`，鉴权直接 403 |
 
-鉴权流程：`Authorization` 取 Bearer → Redis `api_key:{key}` 命中则用缓存（TTL 1 小时）→ 未命中查 `t_api_key` 并回填 → 注入 `ApiKeyContext`（ThreadLocal，请求结束清理）。
+`ADMIN` 是权限位，决定能否跨用户访问；不再由 `user_id` 是否等于 `admin` 推断。
+
+鉴权流程：`Authorization` 取 Bearer → Redis `api_key:{key}` 命中则用缓存（TTL 60 秒）→ 未命中查 `t_api_key` 并回填 → 注入 `ApiKeyContext`（ThreadLocal，请求结束清理）。TTL 即「禁用或改权限」的最大生效延迟。
 
 ### 握手
 
@@ -78,7 +80,7 @@ curl -X POST http://localhost:8082/mcp \
           "properties": {
             "userId": {"type": "string", "description": "用户 ID"},
             "status": {"type": "string", "description": "订单状态，可选：PENDING/PAID/SHIPPED/COMPLETED"},
-            "limit": {"type": "integer", "description": "返回条数，1-100，默认 20"}
+            "limit": {"type": "integer", "description": "返回条数，1-100，默认 10"}
           },
           "required": ["userId"]
         }
@@ -122,7 +124,7 @@ curl -X POST http://localhost:8082/mcp \
 | `check_inventory` | READ | `skuId` / `warehouseId?` | `InventoryInfo` | — |
 | `search_knowledge` | READ | `query` / `category?` | `KnowledgeDocument[]` | — |
 | `update_order_status` | WRITE | `orderId` / `newStatus` / `remark?` | `UpdateResult` | 非 admin 只能改自己的订单 |
-| `lock_inventory` | WRITE | `skuId` / `quantity` / `orderId` | `LockResult` | — |
+| `lock_inventory` | WRITE | `skuId` / `quantity` / `orderId` | `LockResult` | 非 admin 只能锁定自己的订单 |
 
 参数名由 MCP 注解扫描器从**方法形参名**生成（camelCase），调用时按 schema 里的名字传参；`required = false` 的参数可省略。
 
@@ -136,11 +138,13 @@ curl -X POST http://localhost:8082/mcp \
 | 订单 / 库存不存在 | `订单不存在：X` / `库存记录不存在：sku=X` |
 | 库存不足 | `库存不足：sku=X 可用 N，请求 M` |
 | 重复锁定同一订单 + SKU | 幂等成功，返回 `idempotent: true` 且不重复扣减 |
-| 越权（查 / 改他人订单） | `isError: true`，`无权访问其他用户的订单` |
+| 订单不属于调用方（含 `lock_inventory` 的 `orderId`） | `isError: true`，`无权访问其他用户的订单` |
+| 非法状态流转（如 `COMPLETED → PENDING`、`PENDING → COMPLETED`） | `isError: true`，`非法状态流转：X → Y，允许：[...]` |
+| 读取后订单状态已被其他请求修改 | `isError: true`，`订单状态已被其他请求修改，请重试` |
 
 ### 订单状态
 
-`PENDING` → `PAID` → `SHIPPED` → `COMPLETED`。当前不限制流转方向，非法状态名直接拒绝。
+`PENDING` → `PAID` → `SHIPPED` → `COMPLETED`，只能逐级前进；同状态重复提交按幂等成功处理，不写库。更新语句带上读取时的状态作为条件，并发修改时不会互相覆盖。
 
 ## HTTP 错误码
 
@@ -148,15 +152,19 @@ curl -X POST http://localhost:8082/mcp \
 
 | 状态码 | 场景 | 响应体 | 拦截位置 |
 |--------|------|--------|----------|
+| 400 | 请求体不是合法 JSON，或为批量（数组）请求 | `{"jsonrpc":"2.0","id":null,"error":{"code":-32700/-32600,"message":"..."}}` | `McpToolGuardFilter` |
 | 401 | 缺少或无效 API Key | `{"error":"Unauthorized","message":"..."}` | `ApiKeyAuthFilter` |
-| 403 | API Key 已禁用 / 权限不足（READ 调 WRITE 工具） | `{"error":"Forbidden","message":"..."}` | `ApiKeyAuthFilter` / `McpToolGuardFilter` |
+| 403 | API Key 已禁用 / 权限不足（READ 调 WRITE 工具）/ 工具未登记权限 | `{"error":"Forbidden","message":"..."}` | `ApiKeyAuthFilter` / `McpToolGuardFilter` |
 | 429 | 超过该 Key 每分钟调用上限 | `{"error":"Rate Limit Exceeded","message":"..."}` | `McpToolGuardFilter` |
 
-限流按 `limit:{apiKey}:{分钟}` 计数（Redis，窗口 70 秒），Redis 不可用时 fail-open 放行。
+- 鉴权与治理的路径判定统一走 `McpPaths`，`/mcp/`、带矩阵参数等写法同样被拦截。
+- 权限来自 `@GovernedTool(permission = ...)`，启动时由 `ToolPermissionRegistry` 扫描登记；未登记的工具直接 403，不会默认按 READ 放行。
+- 批量 JSON-RPC 请求被拒绝：逐条治理无法保证，避免绕过权限与限流。
+- 限流按 `limit:{apiKey}:{分钟}` 计数，INCR 与 EXPIRE 在同一个 Lua 脚本内完成（窗口 70 秒），Redis 不可用时 fail-open 放行。
 
 ## 审计与指标
 
-每次工具调用异步写 `t_audit_log`：`SUCCESS` / `ERROR` / `BLOCKED`，含 `request_id`、`tool_name`、`api_key`、`user_id`、`input_params`、`output_summary`、`error_message`、`block_reason`、`latency_ms`。
+每次工具调用异步写 `t_audit_log`：`SUCCESS` / `ERROR` / `BLOCKED`，含 `request_id`、`tool_name`、`api_key`、`user_id`、`input_params`、`output_summary`、`error_message`、`block_reason`、`latency_ms`。`input_params` 为参数原样序列化（截断到 2000 字符），**未脱敏**——工具入参目前不含敏感字段，新增含敏感参数的工具有需要补脱敏。
 
 ```sql
 SELECT tool_name, status, block_reason, latency_ms, created_at
